@@ -1,0 +1,767 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Calculadora dinámica - Catatonic Mechanic</title>
+  <style>
+    :root{--bg:#0f1724;--card:#0b1220;--accent:#1f6feb;--muted:#94a3b8;
+    --green:#22c55e;--orange:#f59e0b;--red:#ef4444}
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,"Helvetica Neue",Arial;background:linear-gradient(180deg,#071021 0%,#071627 100%);color:#e6eef8}
+    .container{max-width:980px;margin:28px auto;padding:20px}
+    .hero{display:flex;align-items:center;gap:18px;padding:18px;border-radius:12px;background:linear-gradient(90deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));box-shadow:0 6px 20px rgba(2,6,23,0.6)}
+    .hero img{height:84px;border-radius:8px;object-fit:cover}
+    h1{margin:0;font-size:20px}
+    p.lead{margin:4px 0 0;color:var(--muted);font-size:13px}
+
+    .card{background:var(--card);padding:14px;border-radius:12px;box-shadow:0 6px 18px rgba(2,6,23,0.6);margin-top:18px}
+    label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+    input[type=text],input[type=number], select{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit;appearance:none}
+    datalist option{color:white;background-color:#1e293b}
+    #repairSelect option[value="200"]{background-color:#22c55e;color:white;}
+    #repairSelect option[value="400"]{background-color:#f59e0b;color:white;}
+    #repairSelect option[value="600"]{background-color:#ef4444;color:white;}
+    #discountSelect option[value="5"]{background-color:#22c55e;color:white;}
+    #discountSelect option[value="10"]{background-color:#f59e0b;color:white;}
+    #discountSelect option[value="15"]{background-color:#ef4444;color:white;}
+    #discountSelect option[value="20"]{background-color:#3b82f6;color:white;}
+
+    button{appearance:none;border:0;padding:10px 12px;border-radius:8px;background:var(--accent);color:white;font-weight:600;cursor:pointer;margin-top:8px}
+    .muted{color:var(--muted);font-size:13px}
+    .result{font-size:18px;font-weight:700;margin-top:10px}
+    .small{font-size:13px}
+    .divider{height:1px;background:rgba(255,255,255,0.03);margin:12px 0;border-radius:2px}
+    .tuner-options{display:flex;flex-direction:column;gap:8px}
+    .tuner-options label{display:flex;align-items:center;gap:8px}
+    .footer-note{color:var(--muted);font-size:12px;margin-top:12px}
+    .car-price{margin-top:4px;font-size:14px;color:white}
+  </style>
+</head>
+<body>
+<div class="container">
+  <div class="hero">
+    <img id="topImage" src="https://imgs.search.brave.com/aXvOsQkLO0zMRnxXU_Y2jfm2OAX6201C3dVEgHWzF18/rs:fit:860:0:0:0/g:ce/aHR0cHM6Ly9pLnNl/cnZpbWcuY29tL3Uv/Zjk3LzIwLzQyLzEx/LzM3L2xvZ29fbDEw/LnBuZw" alt="Banner">
+    <div>
+      <h1>Calculadora de Reparaciones & Tuneos</h1>
+      <p class="lead">Introduce los coches manualmente. Solo selecciona reparación, descuento y tuneo.</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <label>Buscar coche</label>
+    <input type="text" id="carSearch" list="carList" placeholder="Escribe un coche..." />
+    <div id="carPriceDisplay" class="car-price">Precio: $0</div>
+    <datalist id="carList"></datalist>
+
+    <div style="margin-top:10px">
+      <label>Reparación</label>
+      <select id="repairSelect">
+        <option value="0">Sin reparación → $0</option>
+        <option value="200">1-2 → $200</option>
+        <option value="400">3-4 → $400</option>
+        <option value="600">5-6 → $600</option>
+      </select>
+    </div>
+
+    <div style="margin-top:10px">
+      <label>Descuento según negocio</label>
+      <select id="discountSelect">
+        <option value="0">0%</option>
+        <option value="5">5%</option>
+        <option value="10">10%</option>
+        <option value="15">15%</option>
+        <option value="20">20%</option>
+      </select>
+    </div>
+
+    <div class="divider"></div>
+
+    <div>
+      <label>Tuneo</label>
+      <div class="tuner-options">
+        <label><input type="radio" name="tune" value="none" checked /> Ninguno</label>
+        <label><input type="radio" name="tune" value="full30" /> Full tuning (30% del valor del coche)</label>
+        <label><input type="radio" name="tune" value="full15" /> Full estética/motor (15%)</label>
+        <label><input type="radio" name="tune" value="part5" /> Pieza suelta (5%)</label>
+        <label style="display:flex;gap:8px;align-items:center"><span class="muted small">Cantidad piezas (si aplica):</span><input id="partCount" type="number" min="1" value="1" style="width:100px" /></label>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <button id="btnCalculate">Calcular total</button>
+
+    <div class="result" id="resultBox">Total: —</div>
+    <div class="footer-note">Desglose: <span id="breakdown">—</span></div>
+  </div>
+</div>
+
+<script>
+let cars = [];
+const carSearch = document.getElementById('carSearch');
+const resultBox = document.getElementById('resultBox');
+const breakdown = document.getElementById('breakdown');
+const carPriceDisplay = document.getElementById('carPriceDisplay');
+
+function numberWithCommas(x){return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");}
+
+function populateDatalist(){
+  const carList = document.getElementById('carList');
+  carList.innerHTML = '';
+  cars.forEach((c,i)=>{
+    const option = document.createElement('option');
+    option.value = c.name;
+    option.dataset.index = i;
+    carList.appendChild(option);
+  });
+}
+
+// Detectar selección/escritura
+carSearch.addEventListener('input', ()=>{
+  const val = carSearch.value.toLowerCase();
+  const exactCar = cars.find(c => c.name.toLowerCase() === val);
+  if(exactCar){
+    carSearch.dataset.selectedIndex = cars.indexOf(exactCar);
+    carPriceDisplay.textContent = 'Precio: $' + numberWithCommas(exactCar.price);
+  } else {
+    carSearch.dataset.selectedIndex = '';
+    carPriceDisplay.textContent = 'Precio: $0';
+  }
+});
+
+document.getElementById('btnCalculate').addEventListener('click', ()=>{
+  const idx = carSearch.dataset.selectedIndex;
+  if(idx===''||idx===undefined) return alert('Selecciona un coche válido.');
+  const car = cars[idx];
+  const repair = Number(document.getElementById('repairSelect').value);
+  const discount = Number(document.getElementById('discountSelect').value) || 0;
+  const repairAfterDiscount = repair * (1 - discount/100);
+
+  const tuneType = document.querySelector('input[name="tune"]:checked').value;
+  const partCount = Number(document.getElementById('partCount').value) || 1;
+  let tuneCost = 0;
+  if(tuneType==='full30') tuneCost = car.price * 0.30;
+  if(tuneType==='full15') tuneCost = car.price * 0.15;
+  if(tuneType==='part5') tuneCost = car.price * 0.05 * partCount;
+
+  // Aplicar descuento también al tuneo
+  const tuneAfterDiscount = tuneCost * (1 - discount/100);
+
+  const subtotal = repairAfterDiscount + tuneAfterDiscount;
+  resultBox.textContent = 'Total: $' + numberWithCommas(Math.round(subtotal));
+  breakdown.textContent = `Reparación: $${numberWithCommas(Math.round(repairAfterDiscount))} (base $${repair} - ${discount}%); Tuneo: $${numberWithCommas(Math.round(tuneAfterDiscount))} (base $${numberWithCommas(Math.round(tuneCost))} - ${discount}%); Precio coche: $${numberWithCommas(car.price)}`;
+});
+</script>
+
+<script type="application/json" id="coches-data">
+[
+  {
+    "name": "Cheburek",
+    "price": 25000
+  },
+  {
+    "name": "Coquette2",
+    "price": 75000
+  },
+  {
+    "name": "Infernus2",
+    "price": 175000
+  },
+  {
+    "name": "Mamba",
+    "price": 105000
+  },
+  {
+    "name": "Nebula",
+    "price": 45000
+  },
+  {
+    "name": "Retinue2",
+    "price": 78000
+  },
+  {
+    "name": "Savestra",
+    "price": 85000
+  },
+  {
+    "name": "Stringerg",
+    "price": 350000
+  },
+  {
+    "name": "Turismo2",
+    "price": 500000
+  },
+  {
+    "name": "Z190",
+    "price": 154000
+  },
+  {
+    "name": "ZTYPE",
+    "price": 1000000
+  },
+  {
+    "name": "Nombre",
+    "price": 0
+  },
+  {
+    "name": "Brawler",
+    "price": 55000
+  },
+  {
+    "name": "Comet4",
+    "price": 46000
+  },
+  {
+    "name": "Draugur",
+    "price": 98000
+  },
+  {
+    "name": "Everon",
+    "price": 75000
+  },
+  {
+    "name": "Kalahari",
+    "price": 3000
+  },
+  {
+    "name": "Kamacho",
+    "price": 120000
+  },
+  {
+    "name": "Mesa",
+    "price": 25000
+  },
+  {
+    "name": "Mesa",
+    "price": 35000
+  },
+  {
+    "name": "Outlaw",
+    "price": 45000
+  },
+  {
+    "name": "Patriot3",
+    "price": 145000
+  },
+  {
+    "name": "Rebel02",
+    "price": 4500
+  },
+  {
+    "name": "Sandkin2",
+    "price": 40000
+  },
+  {
+    "name": "Sandking",
+    "price": 65000
+  },
+  {
+    "name": "Vagrant",
+    "price": 120000
+  },
+  {
+    "name": "Nombre",
+    "price": 0
+  },
+  {
+    "name": "Cogcabri",
+    "price": 12000
+  },
+  {
+    "name": "Kanjosj",
+    "price": 11000
+  },
+  {
+    "name": "Previon",
+    "price": 8500
+  },
+  {
+    "name": "Sentinel",
+    "price": 15000
+  },
+  {
+    "name": "Sentinel2",
+    "price": 16000
+  },
+  {
+    "name": "Sentinel3",
+    "price": 9000
+  },
+  {
+    "name": "Sentinel5",
+    "price": 35000
+  },
+  {
+    "name": "Windsor",
+    "price": 19000
+  },
+  {
+    "name": "Nombre",
+    "price": 0
+  },
+  {
+    "name": "Coquette4",
+    "price": 190000
+  },
+  {
+    "name": "Corsita",
+    "price": 245000
+  },
+  {
+    "name": "Deveste",
+    "price": 450000
+  },
+  {
+    "name": "Entity2",
+    "price": 650000
+  },
+  {
+    "name": "Furia",
+    "price": 850000
+  },
+  {
+    "name": "Ignus",
+    "price": 1000000
+  },
+  {
+    "name": "Italirsx",
+    "price": 350000
+  },
+  {
+    "name": "Krieger",
+    "price": 860000
+  },
+  {
+    "name": "Prototipo",
+    "price": 1200000
+  },
+  {
+    "name": "Reaper",
+    "price": 940000
+  },
+  {
+    "name": "Schlagen",
+    "price": 145000
+  },
+  {
+    "name": "Sm722",
+    "price": 500000
+  },
+  {
+    "name": "Swinger",
+    "price": 450000
+  },
+  {
+    "name": "Tenf",
+    "price": 225000
+  },
+  {
+    "name": "Tenf2",
+    "price": 250000
+  },
+  {
+    "name": "Tyrus",
+    "price": 1100000
+  },
+  {
+    "name": "Vigilante",
+    "price": 5000000
+  },
+  {
+    "name": "Visione",
+    "price": 550000
+  },
+  {
+    "name": "Zentorno",
+    "price": 450000
+  },
+  {
+    "name": "Zorrusso",
+    "price": 420000
+  },
+  {
+    "name": "Asea",
+    "price": 2500
+  },
+  {
+    "name": "Asterope2",
+    "price": 7000
+  },
+  {
+    "name": "Emperor",
+    "price": 1000
+  },
+  {
+    "name": "Glendale",
+    "price": 9000
+  },
+  {
+    "name": "Hardy",
+    "price": 25000
+  },
+  {
+    "name": "Minimus",
+    "price": 75000
+  },
+  {
+    "name": "Primo",
+    "price": 4500
+  },
+  {
+    "name": "Primo2",
+    "price": 7600
+  },
+  {
+    "name": "Rhinehart",
+    "price": 45000
+  },
+  {
+    "name": "Tailgater2",
+    "price": 75000
+  },
+  {
+    "name": "Warrener",
+    "price": 18000
+  },
+  {
+    "name": "Nombre",
+    "price": 0
+  },
+  {
+    "name": "Banshee",
+    "price": 80000
+  },
+  {
+    "name": "Bestiagts",
+    "price": 100000
+  },
+  {
+    "name": "buffalo",
+    "price": 45000
+  },
+  {
+    "name": "buffalo02",
+    "price": 55000
+  },
+  {
+    "name": "buffalo4",
+    "price": 95000
+  },
+  {
+    "name": "calico",
+    "price": 185000
+  },
+  {
+    "name": "Comet2",
+    "price": 95000
+  },
+  {
+    "name": "Comet5",
+    "price": 110000
+  },
+  {
+    "name": "Comet6",
+    "price": 145000
+  },
+  {
+    "name": "Comet7",
+    "price": 195000
+  },
+  {
+    "name": "Drafter",
+    "price": 125000
+  },
+  {
+    "name": "Elegy",
+    "price": 175000
+  },
+  {
+    "name": "Elegy2",
+    "price": 155000
+  },
+  {
+    "name": "Euros",
+    "price": 185000
+  },
+  {
+    "name": "Jester",
+    "price": 145000
+  },
+  {
+    "name": "Jester3",
+    "price": 155000
+  },
+  {
+    "name": "Jester4",
+    "price": 200000
+  },
+  {
+    "name": "Jugular",
+    "price": 105000
+  },
+  {
+    "name": "Massacro",
+    "price": 95000
+  },
+  {
+    "name": "OmnisGT",
+    "price": 95000
+  },
+  {
+    "name": "RT3000",
+    "price": 75000
+  },
+  {
+    "name": "S95",
+    "price": 135000
+  },
+  {
+    "name": "SultanRS",
+    "price": 75000
+  },
+  {
+    "name": "Tornado",
+    "price": 1750
+  },
+  {
+    "name": "VSTR",
+    "price": 95000
+  },
+  {
+    "name": "ZR350",
+    "price": 110000
+  },
+  {
+    "name": "Nombre",
+    "price": 0
+  },
+  {
+    "name": "Akuma",
+    "price": 5500
+  },
+  {
+    "name": "Defiler",
+    "price": 4500
+  },
+  {
+    "name": "Diablous",
+    "price": 9000
+  },
+  {
+    "name": "Diablous2",
+    "price": 18000
+  },
+  {
+    "name": "Faggio",
+    "price": 500
+  },
+  {
+    "name": "Faggio3",
+    "price": 1500
+  },
+  {
+    "name": "Hakuchou",
+    "price": 35000
+  },
+  {
+    "name": "Hakuchou2",
+    "price": 45000
+  },
+  {
+    "name": "Reeven",
+    "price": 35000
+  },
+  {
+    "name": "Shinobi",
+    "price": 75000
+  },
+  {
+    "name": "Nombre",
+    "price": 0
+  },
+  {
+    "name": "Bison",
+    "price": 3500
+  },
+  {
+    "name": "BobcatXL",
+    "price": 5500
+  },
+  {
+    "name": "Burrito",
+    "price": 12000
+  },
+  {
+    "name": "GBurrito2",
+    "price": 15000
+  },
+  {
+    "name": "Rumpo3",
+    "price": 19000
+  },
+  {
+    "name": "Surfer3",
+    "price": 7500
+  },
+  {
+    "name": "Youga3",
+    "price": 11000
+  },
+  {
+    "name": "BMX",
+    "price": 250
+  },
+  {
+    "name": "Cruiser",
+    "price": 150
+  },
+  {
+    "name": "Fixter",
+    "price": 760
+  },
+  {
+    "name": "GcScoot",
+    "price": 1500
+  },
+  {
+    "name": "Scorcher",
+    "price": 1000
+  },
+  {
+    "name": "Nombre",
+    "price": 0
+  },
+  {
+    "name": "Asbo",
+    "price": 2497
+  },
+  {
+    "name": "Blista",
+    "price": 3500
+  },
+  {
+    "name": "Brioso",
+    "price": 4000
+  },
+  {
+    "name": "Club",
+    "price": 7000
+  },
+  {
+    "name": "Kanjo",
+    "price": 10000
+  },
+  {
+    "name": "Nombre",
+    "price": 0
+  },
+  {
+    "name": "Baller",
+    "price": 3500
+  },
+  {
+    "name": "Baller4",
+    "price": 450000
+  },
+  {
+    "name": "Baller8",
+    "price": 85000
+  },
+  {
+    "name": "Cavalcade3",
+    "price": 75000
+  },
+  {
+    "name": "Cavcade",
+    "price": 9000
+  },
+  {
+    "name": "Contender",
+    "price": 75000
+  },
+  {
+    "name": "Granger2",
+    "price": 75000
+  },
+  {
+    "name": "Novak",
+    "price": 75000
+  },
+  {
+    "name": "Rebla",
+    "price": 92000
+  },
+  {
+    "name": "Toros",
+    "price": 165000
+  },
+  {
+    "name": "Nombre",
+    "price": 0
+  },
+  {
+    "name": "Blade",
+    "price": 30000
+  },
+  {
+    "name": "Broadway",
+    "price": 35000
+  },
+  {
+    "name": "Buccanee",
+    "price": 19000
+  },
+  {
+    "name": "Buccanee2",
+    "price": 25000
+  },
+  {
+    "name": "Chino",
+    "price": 15000
+  },
+  {
+    "name": "Coquette3",
+    "price": 65000
+  },
+  {
+    "name": "Domanito",
+    "price": 35000
+  },
+  {
+    "name": "Dominator7",
+    "price": 55000
+  },
+  {
+    "name": "Dominator9",
+    "price": 75000
+  },
+  {
+    "name": "Gauntlet",
+    "price": 23000
+  },
+  {
+    "name": "Gauntlet3",
+    "price": 32000
+  },
+  {
+    "name": "Gauntet5",
+    "price": 75000
+  }
+]
+</script>
+
+<script>
+window.addEventListener("DOMContentLoaded", () => {
+  try {
+    const data = document.getElementById("coches-data").textContent;
+    cars = JSON.parse(data);
+    populateDatalist();
+  } catch(e) {
+    console.error("Error cargando coches predefinidos:", e);
+  }
+});
+</script>
+
+</body>
+</html>
